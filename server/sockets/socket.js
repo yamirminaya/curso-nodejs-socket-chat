@@ -4,6 +4,9 @@ const { crearMensaje } = require('../utilidades/utilidades')
 const Usuarios = require('../classes/Usuarios')
 const usuarios = new Usuarios()
 
+const Mensajes = require('../classes/Mensajes')
+const mensajes = new Mensajes()
+
 io.on('connection', (client) => {
   client.on('entrarChat', (data, callback) => {
     if (!data.nombre || !data.sala) {
@@ -18,22 +21,37 @@ io.on('connection', (client) => {
     //* Emitiendo a todo el mundo
     // client.broadcast.emit('listaPersonas', usuarios.getPersonas())
 
+    //*
+    client.broadcast
+      .to(data.sala)
+      .emit(
+        'crearMensaje',
+        crearMensaje('Administrador', `${data.nombre} ingresó`)
+      )
+
     //* Emitiendo a una sala en particular
     client.broadcast
       .to(data.sala)
       .emit('listaPersonas', usuarios.getPersonasPorSala(data.sala))
-
-    callback(usuarios.getPersonasPorSala(data.sala))
+    //console.log(usuarios.getPersonasPorSala(data.sala))
+    let info = {
+      usuarios: usuarios.getPersonasPorSala(data.sala),
+      usuario: usuarios.getPersona(client.id),
+    }
+    callback(info)
   })
 
-  client.on('crearMensaje', (data) => {
+  client.on('crearMensaje', (data, callback) => {
     let persona = usuarios.getPersona(client.id)
-    let mensaje = crearMensaje(persona.nombre, data.mensaje)
+    console.log(persona)
+    let mensaje = crearMensaje(persona, data.mensaje)
     //* Emitiendo mensajes solo a personas que se encuentren en la misma sala
     client.broadcast.to(persona.sala).emit('crearMensaje', mensaje)
+    callback(mensaje)
   })
 
   client.on('disconnect', () => {
+    console.log('disconnect from back')
     let personaBorrada = usuarios.borrarPersona(client.id)
     client.broadcast
       .to(personaBorrada.sala)
